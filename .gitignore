@@ -107,3 +107,7 @@ dist
 
 # Swift build output
 mac/OfficeCheckInApp/.build/
+mac/OfficeCheckInApp/.swiftpm/
+
+# Local signing config (contains developer identity)
+Scripts/signing.local
