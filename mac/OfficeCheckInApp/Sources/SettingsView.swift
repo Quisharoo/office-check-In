@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var radiusText: String = ""
     @State private var officeName: String = ""
     @State private var launchAtLogin: Bool = false
+    @State private var coordinatesText: String = ""
+    @State private var coordinatesError: String? = nil
 
     var body: some View {
         Form {
@@ -53,6 +55,26 @@ struct SettingsView: View {
                         .onSubmit(commitRadius)
                     Text("m")
                         .foregroundStyle(.secondary)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Coordinates")
+                        Spacer()
+                        TextField("Paste Google Maps link or lat, lon", text: $coordinatesText)
+                            .frame(width: 280)
+                            .onSubmit(commitCoordinates)
+                    }
+                    if let current = currentCoordinatesText {
+                        Text("Current: \(current)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let error = coordinatesError {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 HStack {
@@ -136,6 +158,25 @@ struct SettingsView: View {
             store.save()
         }
         officeName = store.config.officeName
+    }
+    
+    private func commitCoordinates() {
+        coordinatesError = nil
+        let trimmed = coordinatesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        if location.parseAndSetCoordinates(trimmed) {
+            coordinatesText = ""
+            location.startMonitoringIfConfigured()
+        } else {
+            coordinatesError = "Could not parse coordinates"
+        }
+    }
+    
+    private var currentCoordinatesText: String? {
+        guard let lat = store.config.officeLatitude,
+              let lon = store.config.officeLongitude else { return nil }
+        return String(format: "%.5f, %.5f", lat, lon)
     }
 }
 
