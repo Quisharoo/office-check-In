@@ -114,3 +114,8 @@ Scripts/signing.local
 
 # Build output
 dist/
+
+# Xcode user data
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
