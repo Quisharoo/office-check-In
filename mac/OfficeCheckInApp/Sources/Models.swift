@@ -95,7 +95,20 @@ final class OfficeStore: ObservableObject {
     private struct PersistedState: Codable {
         var config: OfficeConfig
         var log: DayLog
-        var lastUpdated: Date = Date()
+        var lastUpdated: Date
+        
+        init(config: OfficeConfig, log: DayLog, lastUpdated: Date = Date()) {
+            self.config = config
+            self.log = log
+            self.lastUpdated = lastUpdated
+        }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            config = try container.decode(OfficeConfig.self, forKey: .config)
+            log = try container.decode(DayLog.self, forKey: .log)
+            lastUpdated = try container.decodeIfPresent(Date.self, forKey: .lastUpdated) ?? Date()
+        }
     }
 
     private func saveToDefaults(_ state: PersistedState) {
