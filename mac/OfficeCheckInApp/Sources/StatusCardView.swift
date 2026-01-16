@@ -282,8 +282,8 @@ struct StatusCardView: View {
                 }
             }
 
-            Button("Settings") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            SettingsLink {
+                Text("Settings")
             }
             
             Button("Quit") {
