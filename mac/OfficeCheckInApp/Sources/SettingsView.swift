@@ -18,13 +18,14 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 20) {
             // General
             GroupBox("General") {
-                VStack(alignment: .leading, spacing: 12) {
+                HStack {
                     Toggle("Launch at login", isOn: $launchAtLogin)
                         .onChange(of: launchAtLogin) { _, newValue in
                             setLaunchAtLogin(newValue)
                         }
+                    Spacer()
                 }
-                .padding(.vertical, 8)
+                .padding(12)
             }
             
             // Goal
@@ -73,14 +74,34 @@ struct SettingsView: View {
                         HStack(alignment: .top) {
                             Text("Coordinates")
                                 .frame(width: labelWidth, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 4) {
-                                TextField("Paste Google Maps URL or lat, lon", text: $coordinatesText)
-                                    .textFieldStyle(.roundedBorder)
-                                    .onSubmit(commitCoordinates)
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    TextField("Paste Google Maps URL or lat, lon", text: $coordinatesText)
+                                        .textFieldStyle(.roundedBorder)
+                                        .onSubmit(commitCoordinates)
+                                    Button("Set") {
+                                        commitCoordinates()
+                                    }
+                                    .disabled(coordinatesText.isEmpty)
+                                }
                                 if let current = currentCoordinatesText {
-                                    Text("Current: \(current)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.green)
+                                            .font(.caption)
+                                        Text(current)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } else {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "exclamationmark.circle")
+                                            .foregroundStyle(.orange)
+                                            .font(.caption)
+                                        Text("No coordinates set")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                                 if let error = coordinatesError {
                                     Text(error)

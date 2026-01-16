@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import UserNotifications
 
 final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -191,7 +192,30 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             markedTodayKey = key
             // Stop monitoring for the rest of the day
             stopMonitoring()
-            lastEvent = "Checked in — monitoring paused until tomorrow"
+            lastEvent = "✓ Checked in at \(store.config.officeName)"
+            sendCheckedInNotification(officeName: store.config.officeName)
+        }
+    }
+    
+    private func sendCheckedInNotification(officeName: String) {
+        let center = UNUserNotificationCenter.current()
+        
+        // Request permission if needed
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            
+            let content = UNMutableNotificationContent()
+            content.title = "Office Check-In"
+            content.body = "Marked as in office at \(officeName). Have a productive day!"
+            content.sound = .default
+            
+            let request = UNNotificationRequest(
+                identifier: "office-checkin-\(Date().timeIntervalSince1970)",
+                content: content,
+                trigger: nil // Deliver immediately
+            )
+            
+            center.add(request)
         }
     }
 }
