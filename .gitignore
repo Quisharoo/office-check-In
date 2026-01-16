@@ -111,3 +111,6 @@ mac/OfficeCheckInApp/.swiftpm/
 
 # Local signing config (contains developer identity)
 Scripts/signing.local
+
+# Build output
+dist/
