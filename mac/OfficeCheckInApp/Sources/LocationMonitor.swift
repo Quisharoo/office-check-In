@@ -6,11 +6,13 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     @Published private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published private(set) var lastEvent: String? = nil
     @Published private(set) var isMonitoring: Bool = false
+    @Published private(set) var monitoredOfficeCount: Int = 0
 
     private let manager = CLLocationManager()
     private weak var store: OfficeStore?
     private var didBind = false
-    private var markedTodayKey: String? = nil  // Track if we already marked today
+    private var markedTodayKey: String? = nil
+    private var pendingOfficeForCurrentLocation: OfficeLocation? = nil
 
     override init() {
         super.init()
@@ -22,33 +24,55 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         guard !didBind else { return }
         didBind = true
         self.store = store
-        // If config already has a region, try to start monitoring.
+        startMonitoringIfConfigured()
+    }
+
+    func requestPermission() {
+        manager.requestAlwaysAuthorization()
+    }
+    
+    // MARK: - Office Management
+    
+    func addOffice(_ office: OfficeLocation) {
+        guard let store else { return }
+        store.config.offices.append(office)
+        store.save()
         startMonitoringIfConfigured()
     }
     
-    /// Set office coordinates manually (e.g., from Google Maps)
-    func setOfficeCoordinates(latitude: Double, longitude: Double) {
+    func updateOffice(_ office: OfficeLocation) {
         guard let store else { return }
-        store.config.officeLatitude = latitude
-        store.config.officeLongitude = longitude
+        if let index = store.config.offices.firstIndex(where: { $0.id == office.id }) {
+            store.config.offices[index] = office
+            store.save()
+            startMonitoringIfConfigured()
+        }
+    }
+    
+    func removeOffice(id: UUID) {
+        guard let store else { return }
+        store.config.offices.removeAll { $0.id == id }
         store.save()
         startMonitoringIfConfigured()
-        lastEvent = "Set office to \(String(format: "%.5f", latitude)), \(String(format: "%.5f", longitude))"
+    }
+    
+    func setCurrentLocationForOffice(_ office: OfficeLocation) {
+        pendingOfficeForCurrentLocation = office
+        manager.requestLocation()
     }
     
     /// Parse coordinates from various formats (Google Maps URL, "lat, lon", etc.)
-    func parseAndSetCoordinates(_ input: String) -> Bool {
+    func parseCoordinates(_ input: String) -> (latitude: Double, longitude: Double)? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Try Google Maps URL format: .../@51.5074,-0.1278,... or ...!3d51.5074!4d-0.1278...
+        // Try Google Maps URL format: .../@51.5074,-0.1278,...
         if let match = trimmed.range(of: #"@(-?\d+\.?\d*),(-?\d+\.?\d*)"#, options: .regularExpression) {
-            let coords = String(trimmed[match]).dropFirst() // remove @
+            let coords = String(trimmed[match]).dropFirst()
             let parts = coords.split(separator: ",")
             if parts.count >= 2,
                let lat = Double(parts[0]),
                let lon = Double(parts[1]) {
-                setOfficeCoordinates(latitude: lat, longitude: lon)
-                return true
+                return (lat, lon)
             }
         }
         
@@ -58,8 +82,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             let latStr = String(trimmed[latMatch]).dropFirst(3)
             let lonStr = String(trimmed[lonMatch]).dropFirst(3)
             if let lat = Double(latStr), let lon = Double(lonStr) {
-                setOfficeCoordinates(latitude: lat, longitude: lon)
-                return true
+                return (lat, lon)
             }
         }
         
@@ -67,33 +90,22 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         let simple = trimmed.replacingOccurrences(of: ",", with: " ")
         let parts = simple.split(separator: " ").compactMap { Double($0) }
         if parts.count >= 2 {
-            setOfficeCoordinates(latitude: parts[0], longitude: parts[1])
-            return true
+            return (parts[0], parts[1])
         }
         
-        return false
+        return nil
     }
 
-    func requestPermission() {
-        // On macOS, CoreLocation supports `.authorized` / `.authorizedAlways` (no `authorizedWhenInUse`).
-        // Region monitoring generally expects "Always" style authorization.
-        manager.requestAlwaysAuthorization()
-    }
-
-    func setOfficeToCurrentLocation(name: String = "Office") {
-        manager.requestLocation()
-        // We'll capture location in didUpdateLocations and then set config.
-        // Name is applied when saving.
-        pendingOfficeName = name
-    }
-
-    private var pendingOfficeName: String? = nil
-
+    // MARK: - Monitoring
+    
     func startMonitoringIfConfigured() {
         guard let store else { return }
-        guard let lat = store.config.officeLatitude,
-              let lon = store.config.officeLongitude else {
-            lastEvent = "No office location configured"
+        
+        let enabledOffices = store.config.offices.filter { $0.isEnabled }
+        
+        guard !enabledOffices.isEmpty else {
+            stopMonitoring()
+            lastEvent = "No offices configured"
             return
         }
         
@@ -103,7 +115,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         
         // Don't monitor on weekends
         let weekday = cal.component(.weekday, from: today)
-        if weekday == 1 || weekday == 7 { // Sunday = 1, Saturday = 7
+        if weekday == 1 || weekday == 7 {
             stopMonitoring()
             lastEvent = "Weekend — monitoring paused"
             return
@@ -116,19 +128,29 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             return
         }
         
-        let radius = max(50, min(5000, store.config.officeRadiusMeters))
-        let center = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-        let region = CLCircularRegion(center: center, radius: radius, identifier: "office")
-        region.notifyOnEntry = true
-        region.notifyOnExit = false // We only care about entry
-
-        // Replace any existing.
+        // Stop existing monitoring
         for r in manager.monitoredRegions {
             manager.stopMonitoring(for: r)
         }
-        manager.startMonitoring(for: region)
+        
+        // Start monitoring all enabled offices (up to 20, iOS/macOS limit)
+        for office in enabledOffices.prefix(20) {
+            let center = CLLocationCoordinate2D(latitude: office.latitude, longitude: office.longitude)
+            let radius = max(50, min(5000, office.radiusMeters))
+            let region = CLCircularRegion(center: center, radius: radius, identifier: office.id.uuidString)
+            region.notifyOnEntry = true
+            region.notifyOnExit = false
+            manager.startMonitoring(for: region)
+        }
+        
         isMonitoring = true
-        lastEvent = "Monitoring \(store.config.officeName) (\(Int(radius))m)"
+        monitoredOfficeCount = min(enabledOffices.count, 20)
+        
+        if enabledOffices.count == 1 {
+            lastEvent = "Monitoring \(enabledOffices[0].name)"
+        } else {
+            lastEvent = "Monitoring \(monitoredOfficeCount) offices"
+        }
     }
     
     func stopMonitoring() {
@@ -136,9 +158,10 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             manager.stopMonitoring(for: r)
         }
         isMonitoring = false
+        monitoredOfficeCount = 0
     }
 
-    // MARK: CLLocationManagerDelegate
+    // MARK: - CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
@@ -148,7 +171,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManager(_ manager: CLLocationManager, didStartMonitoringFor region: CLRegion) {
-        lastEvent = "Started monitoring region"
+        // Silent - we log the aggregate in startMonitoringIfConfigured
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -156,51 +179,55 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-        lastEvent = "Entered office region"
-        markTodayInOffice()
+        guard let store else { return }
+        let officeName = store.config.offices.first { $0.id.uuidString == region.identifier }?.name ?? "Office"
+        markTodayInOffice(officeName: officeName)
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
-        lastEvent = "Exited office region"
+        // We don't need to do anything on exit
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let store else { return }
         guard let loc = locations.last else { return }
-        let name = pendingOfficeName ?? store.config.officeName
-        pendingOfficeName = nil
-
-        store.config.officeName = name
-        store.config.officeLatitude = loc.coordinate.latitude
-        store.config.officeLongitude = loc.coordinate.longitude
-        store.save()
-        startMonitoringIfConfigured()
-        lastEvent = "Set office to current location"
+        
+        if var office = pendingOfficeForCurrentLocation {
+            office.latitude = loc.coordinate.latitude
+            office.longitude = loc.coordinate.longitude
+            
+            if let index = store.config.offices.firstIndex(where: { $0.id == office.id }) {
+                store.config.offices[index] = office
+            } else {
+                store.config.offices.append(office)
+            }
+            store.save()
+            pendingOfficeForCurrentLocation = nil
+            startMonitoringIfConfigured()
+            lastEvent = "Set \(office.name) to current location"
+        }
     }
 
-    private func markTodayInOffice() {
+    private func markTodayInOffice(officeName: String) {
         guard let store else { return }
         let cal = Calendar.current
         let key = cal.dayKey(for: Date())
         
-        // Only auto-mark if today isn't already marked
         switch store.log.entries[key] {
         case .pto, .sick, .exempt, .publicHoliday, .inOffice:
             return
         default:
             store.set(.inOffice, for: Date(), calendar: cal)
             markedTodayKey = key
-            // Stop monitoring for the rest of the day
             stopMonitoring()
-            lastEvent = "✓ Checked in at \(store.config.officeName)"
-            sendCheckedInNotification(officeName: store.config.officeName)
+            lastEvent = "✓ Checked in at \(officeName)"
+            sendCheckedInNotification(officeName: officeName)
         }
     }
     
     private func sendCheckedInNotification(officeName: String) {
         let center = UNUserNotificationCenter.current()
         
-        // Request permission if needed
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
             guard granted else { return }
             
@@ -212,7 +239,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             let request = UNNotificationRequest(
                 identifier: "office-checkin-\(Date().timeIntervalSince1970)",
                 content: content,
-                trigger: nil // Deliver immediately
+                trigger: nil
             )
             
             center.add(request)

@@ -25,19 +25,69 @@ struct DayLog: Codable {
     var entries: [String: DayType] = [:]
 }
 
+struct OfficeLocation: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var name: String
+    var latitude: Double
+    var longitude: Double
+    var radiusMeters: Double = 250
+    var isEnabled: Bool = true
+}
+
 struct OfficeConfig: Codable {
     var targetPct: Double = 50
     /// Swift weekday ints: Sun=1 ... Sat=7. Default prefers Tue/Wed/Thu then Mon/Fri.
     var preferredWeekdays: [Int] = [3, 4, 5, 2, 6]
 
-    // Office region (for geofencing)
-    var officeName: String = "Office"
-    var officeLatitude: Double? = nil
-    var officeLongitude: Double? = nil
-    var officeRadiusMeters: Double = 250
+    // Multiple office locations for geofencing
+    var offices: [OfficeLocation] = []
     
     // Launch at login
     var launchAtLogin: Bool = false
+    
+    // CodingKeys includes old fields for migration
+    private enum CodingKeys: String, CodingKey {
+        case targetPct
+        case preferredWeekdays
+        case offices
+        case launchAtLogin
+        // Old single-office fields for migration
+        case officeName
+        case officeLatitude
+        case officeLongitude
+        case officeRadiusMeters
+    }
+    
+    init() {}
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        targetPct = try container.decodeIfPresent(Double.self, forKey: .targetPct) ?? 50
+        preferredWeekdays = try container.decodeIfPresent([Int].self, forKey: .preferredWeekdays) ?? [3, 4, 5, 2, 6]
+        offices = try container.decodeIfPresent([OfficeLocation].self, forKey: .offices) ?? []
+        launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        
+        // Migrate old single-office format
+        if offices.isEmpty {
+            let oldName = try container.decodeIfPresent(String.self, forKey: .officeName)
+            let oldLat = try container.decodeIfPresent(Double.self, forKey: .officeLatitude)
+            let oldLon = try container.decodeIfPresent(Double.self, forKey: .officeLongitude)
+            let oldRadius = try container.decodeIfPresent(Double.self, forKey: .officeRadiusMeters) ?? 250
+            
+            if let name = oldName, let lat = oldLat, let lon = oldLon {
+                offices = [OfficeLocation(name: name, latitude: lat, longitude: lon, radiusMeters: oldRadius)]
+            }
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(targetPct, forKey: .targetPct)
+        try container.encode(preferredWeekdays, forKey: .preferredWeekdays)
+        try container.encode(offices, forKey: .offices)
+        try container.encode(launchAtLogin, forKey: .launchAtLogin)
+        // Don't encode old single-office fields
+    }
 }
 
 final class OfficeStore: ObservableObject {
