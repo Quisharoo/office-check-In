@@ -12,106 +12,149 @@ struct SettingsView: View {
     @State private var coordinatesText: String = ""
     @State private var coordinatesError: String? = nil
 
+    private let labelWidth: CGFloat = 140
+
     var body: some View {
-        Form {
-            Section("General") {
-                Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        setLaunchAtLogin(newValue)
-                    }
+        VStack(alignment: .leading, spacing: 20) {
+            // General
+            GroupBox("General") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Launch at login", isOn: $launchAtLogin)
+                        .onChange(of: launchAtLogin) { _, newValue in
+                            setLaunchAtLogin(newValue)
+                        }
+                }
+                .padding(.vertical, 8)
             }
             
-            Section("Goal") {
-                HStack {
-                    Text("Target attendance")
-                    Spacer()
-                    TextField("", text: $targetPctText)
-                        .frame(width: 70)
-                        .multilineTextAlignment(.trailing)
-                        .onSubmit(commitTarget)
-                    Text("%")
-                        .foregroundStyle(.secondary)
-                }
-                Text("Eligible working days exclude PTO/Sick/Exempt/Public Holiday.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Office (geofence)") {
-                HStack {
-                    Text("Name")
-                    Spacer()
-                    TextField("Office", text: $officeName)
-                        .frame(width: 240)
-                        .onSubmit(commitOfficeName)
-                }
-
-                HStack {
-                    Text("Radius")
-                    Spacer()
-                    TextField("250", text: $radiusText)
-                        .frame(width: 90)
-                        .multilineTextAlignment(.trailing)
-                        .onSubmit(commitRadius)
-                    Text("m")
-                        .foregroundStyle(.secondary)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
+            // Goal
+            GroupBox("Goal") {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Coordinates")
-                        Spacer()
-                        TextField("Paste Google Maps link or lat, lon", text: $coordinatesText)
-                            .frame(width: 280)
-                            .onSubmit(commitCoordinates)
-                    }
-                    if let current = currentCoordinatesText {
-                        Text("Current: \(current)")
-                            .font(.footnote)
+                        Text("Target attendance")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField("50", text: $targetPctText)
+                            .frame(width: 60)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(commitTarget)
+                        Text("%")
                             .foregroundStyle(.secondary)
                     }
-                    if let error = coordinatesError {
-                        Text(error)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
+                    Text("Eligible working days exclude PTO, Sick, Exempt, and Public Holidays.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 8)
+            }
 
+            // Office Geofence
+            GroupBox("Office Geofence") {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Office name")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField("Office", text: $officeName)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(commitOfficeName)
+                    }
+
+                    HStack {
+                        Text("Radius")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField("250", text: $radiusText)
+                            .frame(width: 80)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(commitRadius)
+                        Text("meters")
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top) {
+                            Text("Coordinates")
+                                .frame(width: labelWidth, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 4) {
+                                TextField("Paste Google Maps URL or lat, lon", text: $coordinatesText)
+                                    .textFieldStyle(.roundedBorder)
+                                    .onSubmit(commitCoordinates)
+                                if let current = currentCoordinatesText {
+                                    Text("Current: \(current)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let error = coordinatesError {
+                                    Text(error)
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                }
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("Location permission")
+                            .frame(width: labelWidth, alignment: .leading)
+                        Text(location.authorizationStatusText)
+                            .foregroundStyle(location.authorizationStatus == .authorizedAlways ? .green : .secondary)
+                        Spacer()
+                        Button("Request") { location.requestPermission() }
+                            .buttonStyle(.bordered)
+                    }
+
+                    HStack(spacing: 12) {
+                        Button("Use Current Location") {
+                            commitOfficeName()
+                            location.setOfficeToCurrentLocation(name: store.config.officeName)
+                        }
+                        Button("Start Monitoring") { 
+                            location.startMonitoringIfConfigured() 
+                        }
+                        Spacer()
+                        if location.isMonitoring {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(.green)
+                                    .frame(width: 8, height: 8)
+                                Text("Active")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let msg = location.lastEvent {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 4)
+                    }
+                    
+                    Text("Geofencing auto-marks today as 'In Office' when you enter the region. Skips weekends and stops after first detection each day.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                }
+                .padding(.vertical, 8)
+            }
+
+            // Data
+            GroupBox("Data") {
                 HStack {
-                    Text("Location permission")
-                    Spacer()
-                    Text(location.authorizationStatusText)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 10) {
-                    Button("Request Permission") { location.requestPermission() }
-                    Button("Set Office to Current Location") {
-                        commitOfficeName()
-                        location.setOfficeToCurrentLocation(name: store.config.officeName)
+                    Button("Reset All Data", role: .destructive) {
+                        store.log.entries.removeAll()
+                        store.save()
                     }
-                    Button("Start Monitoring") { location.startMonitoringIfConfigured() }
+                    Spacer()
                 }
-                .controlSize(.small)
-
-                if let msg = location.lastEvent {
-                    Text(msg)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Text("Geofencing auto-marks today as 'In Office' when you enter the region. Requires location permission and a configured office.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .padding(.vertical, 8)
             }
-
-            Section("Data") {
-                Button("Reset local data") {
-                    store.log.entries.removeAll()
-                    store.save()
-                }
-            }
+            
+            Spacer()
         }
+        .padding(20)
+        .frame(minWidth: 480, minHeight: 520)
         .onAppear {
             targetPctText = String(Int(store.config.targetPct))
             radiusText = String(Int(store.config.officeRadiusMeters))

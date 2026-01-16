@@ -24,8 +24,6 @@ struct OfficeCheckInApp: App {
             SettingsView()
                 .environmentObject(store)
                 .environmentObject(location)
-                .frame(width: 560, height: 520)
-                .padding()
         }
     }
 }
