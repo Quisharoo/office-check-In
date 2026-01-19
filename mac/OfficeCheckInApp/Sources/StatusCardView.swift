@@ -3,6 +3,7 @@ import SwiftUI
 struct StatusCardView: View {
     @EnvironmentObject private var store: OfficeStore
     @EnvironmentObject private var location: LocationMonitor
+    @Environment(\.openSettings) private var openSettings
 
     @State private var range: RangeKind = .quarter
     @State private var monthCursor = Date()
@@ -24,12 +25,13 @@ struct StatusCardView: View {
 
     private var today: Date { calendar.startOfDay(for: Date()) }
 
+    /// Fiscal quarter based on the month being viewed (not today)
     private var fiscalQuarter: (name: String, start: Date, end: Date) {
-        FlexLogic.fiscalQuarter(for: today, calendar: calendar)
+        FlexLogic.fiscalQuarter(for: monthCursor, calendar: calendar)
     }
     
     private var fiscalQuarterLabel: String {
-        FlexLogic.fiscalQuarterLabel(for: today, calendar: calendar)
+        FlexLogic.fiscalQuarterLabel(for: monthCursor, calendar: calendar)
     }
 
     /// Returns the FULL period dates (start to end of month/quarter, not capped to today)
@@ -158,6 +160,12 @@ struct StatusCardView: View {
         }
     }
 
+    private var isOnCurrentMonth: Bool {
+        let cursorComps = calendar.dateComponents([.year, .month], from: monthCursor)
+        let todayComps = calendar.dateComponents([.year, .month], from: today)
+        return cursorComps.year == todayComps.year && cursorComps.month == todayComps.month
+    }
+
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -171,18 +179,23 @@ struct StatusCardView: View {
                     }
                 }
                 Spacer()
+                if !isOnCurrentMonth {
+                    Button("Today") {
+                        monthCursor = today
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                 Button { navigateMonth(delta: -1) } label: { 
                     Image(systemName: "chevron.left")
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
                 Button { navigateMonth(delta: 1) } label: { 
                     Image(systemName: "chevron.right")
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             MonthGridView(
@@ -282,8 +295,12 @@ struct StatusCardView: View {
                 }
             }
 
-            SettingsLink {
-                Text("Settings")
+            Button("Settings") {
+                NSApp.keyWindow?.close()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openSettings()
+                }
             }
             
             Button("Quit") {

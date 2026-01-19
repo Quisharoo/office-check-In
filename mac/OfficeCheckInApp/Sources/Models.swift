@@ -102,16 +102,17 @@ final class OfficeStore: ObservableObject {
 
     init() {
         load()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(iCloudDidChange(_:)),
-            name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-            object: iCloudStore
-        )
+        // iCloud sync disabled - was causing data loss
+        // NotificationCenter.default.addObserver(
+        //     self,
+        //     selector: #selector(iCloudDidChange(_:)),
+        //     name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+        //     object: iCloudStore
+        // )
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        // NotificationCenter.default.removeObserver(self)
     }
 
     func set(_ type: DayType?, for date: Date, calendar: Calendar = .current) {
@@ -128,18 +129,18 @@ final class OfficeStore: ObservableObject {
         let state = PersistedState(config: config, log: log, lastUpdated: Date())
         saveToDefaults(state)
         lastKnownState = state
-        if !isApplyingRemoteUpdate {
-            saveToICloud(state)
-        }
+        // iCloud sync disabled
+        // if !isApplyingRemoteUpdate {
+        //     saveToICloud(state)
+        // }
     }
 
     private func load() {
-        let localState = loadFromDefaults()
-        let cloudState = loadFromICloud()
-        guard let selected = chooseNewest(local: localState, cloud: cloudState) else { return }
-        let shouldPushLocalToICloud = (localState?.lastUpdated ?? .distantPast) > (cloudState?.lastUpdated ?? .distantPast)
-        apply(state: selected, persistToICloud: shouldPushLocalToICloud)
-        lastKnownState = selected
+        // Load from local UserDefaults only (iCloud sync removed)
+        guard let localState = loadFromDefaults() else { return }
+        config = localState.config
+        log = localState.log
+        lastKnownState = localState
     }
 
     private struct PersistedState: Codable {

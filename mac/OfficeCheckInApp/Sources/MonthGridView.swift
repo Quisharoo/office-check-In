@@ -170,25 +170,26 @@ private struct DayCell: View {
         }
     }
 
+    private func cycleType() {
+        guard isEnabled else { return }
+        let allTypes = DayType.allCases
+        if let current = type, let idx = allTypes.firstIndex(of: current) {
+            let nextIdx = allTypes.index(after: idx)
+            if nextIdx < allTypes.endIndex {
+                onSetType(date, allTypes[nextIdx])
+            } else {
+                onSetType(date, nil) // Back to empty
+            }
+        } else {
+            onSetType(date, allTypes.first) // Start with first type
+        }
+    }
+
     var body: some View {
         let day = calendar.component(.day, from: date)
         
-        Menu {
-            if isEnabled {
-                ForEach(DayType.allCases) { t in
-                    Button {
-                        onSetType(date, t)
-                    } label: {
-                        Label(t.displayName, systemImage: iconFor(t))
-                    }
-                }
-                Divider()
-                Button("Clear", role: .destructive) {
-                    onSetType(date, nil)
-                }
-            } else {
-                Text("Outside selected range")
-            }
+        Button {
+            cycleType()
         } label: {
             ZStack {
                 // Background
@@ -219,7 +220,7 @@ private struct DayCell: View {
             .opacity(isEnabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
-        .help(type?.displayName ?? (isWeekend ? "Weekend" : "Unmarked"))
+        .help(type?.displayName ?? (isWeekend ? "Weekend" : "Click to mark"))
     }
     
     private func iconFor(_ type: DayType) -> String {
