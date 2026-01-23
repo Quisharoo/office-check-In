@@ -67,4 +67,5 @@ killall cfprefsd; open /Applications/OfficeCheckIn.app
 
 ---
 
-![screenshot](screenshot.png)
+![Office Check-In Screenshot](screenshot.png)
+

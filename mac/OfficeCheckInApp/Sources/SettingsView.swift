@@ -113,6 +113,12 @@ struct SettingsView: View {
                         }
                         .disabled(store.config.offices.isEmpty)
                         
+                        Button("Check Now") {
+                            location.checkLocationNow()
+                        }
+                        .disabled(store.config.offices.isEmpty)
+                        .help("Check if you're currently at an office")
+                        
                         Spacer()
                         
                         if location.isMonitoring {

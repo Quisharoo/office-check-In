@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import UserNotifications
+import AppKit
 
 final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -18,6 +19,25 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         super.init()
         manager.delegate = self
         authorizationStatus = manager.authorizationStatus
+        
+        // Listen for wake from sleep to auto-check location
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(systemDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+    
+    @objc private func systemDidWake() {
+        // When Mac wakes, do an immediate location check
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            self?.checkLocationNow()
+        }
     }
 
     func bind(store: OfficeStore) {
@@ -25,6 +45,11 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         didBind = true
         self.store = store
         startMonitoringIfConfigured()
+        
+        // Auto-check location on app launch (after a short delay for permissions)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.checkLocationNow()
+        }
     }
 
     func requestPermission() {
@@ -153,6 +178,38 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         }
     }
     
+    /// Check current location immediately against all enabled offices
+    func checkLocationNow() {
+        guard let store else { return }
+        let enabledOffices = store.config.offices.filter { $0.isEnabled }
+        guard !enabledOffices.isEmpty else {
+            lastEvent = "No offices configured"
+            return
+        }
+        
+        // Don't check on weekends
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: Date())
+        if weekday == 1 || weekday == 7 {
+            lastEvent = "Weekend — no check needed"
+            return
+        }
+        
+        // Don't check if already marked today
+        let todayKey = cal.dayKey(for: Date())
+        if store.log.entries[todayKey] == .inOffice {
+            lastEvent = "Already checked in today"
+            return
+        }
+        
+        // Store offices to check against when location arrives
+        pendingLocationCheck = enabledOffices
+        manager.requestLocation()
+        lastEvent = "Checking location..."
+    }
+    
+    private var pendingLocationCheck: [OfficeLocation]? = nil
+    
     func stopMonitoring() {
         for r in manager.monitoredRegions {
             manager.stopMonitoring(for: r)
@@ -175,6 +232,8 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        pendingLocationCheck = nil  // Clear pending check on error
+        pendingOfficeForCurrentLocation = nil
         lastEvent = "Location error: \(error.localizedDescription)"
     }
 
@@ -192,6 +251,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         guard let store else { return }
         guard let loc = locations.last else { return }
         
+        // Handle "Use Current Location" for setting office coordinates
         if var office = pendingOfficeForCurrentLocation {
             office.latitude = loc.coordinate.latitude
             office.longitude = loc.coordinate.longitude
@@ -205,6 +265,24 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
             pendingOfficeForCurrentLocation = nil
             startMonitoringIfConfigured()
             lastEvent = "Set \(office.name) to current location"
+            return
+        }
+        
+        // Handle "Check Now" - see if we're inside any enabled office
+        if let offices = pendingLocationCheck {
+            pendingLocationCheck = nil
+            
+            for office in offices {
+                let officeLocation = CLLocation(latitude: office.latitude, longitude: office.longitude)
+                let distance = loc.distance(from: officeLocation)
+                
+                if distance <= office.radiusMeters {
+                    markTodayInOffice(officeName: office.name)
+                    return
+                }
+            }
+            
+            lastEvent = "Not at any office location"
         }
     }
 
@@ -217,7 +295,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         case .pto, .sick, .exempt, .publicHoliday, .inOffice:
             return
         default:
-            store.set(.inOffice, for: Date(), calendar: cal)
+            store.set(.inOffice, for: Date(), calendar: cal, geofenced: true)
             markedTodayKey = key
             stopMonitoring()
             lastEvent = "✓ Checked in at \(officeName)"

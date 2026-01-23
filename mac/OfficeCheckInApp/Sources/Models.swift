@@ -23,6 +23,17 @@ enum DayType: String, Codable, CaseIterable, Identifiable {
 struct DayLog: Codable {
     /// Keys are YYYY-MM-DD in the user's current calendar/timezone (start-of-day).
     var entries: [String: DayType] = [:]
+    /// Date keys that were auto-marked via geofencing
+    var geofencedDates: Set<String> = []
+    
+    // Custom decoder to handle old data without geofencedDates
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try container.decodeIfPresent([String: DayType].self, forKey: .entries) ?? [:]
+        geofencedDates = try container.decodeIfPresent(Set<String>.self, forKey: .geofencedDates) ?? []
+    }
+    
+    init() {}
 }
 
 struct OfficeLocation: Codable, Identifiable, Equatable {
@@ -95,44 +106,38 @@ final class OfficeStore: ObservableObject {
     @Published var log = DayLog()
 
     private let defaultsKey = "office_checkin_state_v1"
-    private let iCloudKey = "office_checkin_state_v1"
-    private let iCloudStore = NSUbiquitousKeyValueStore.default
-    private var isApplyingRemoteUpdate = false
     private var lastKnownState: PersistedState?
 
     init() {
         load()
-        // iCloud sync disabled - was causing data loss
-        // NotificationCenter.default.addObserver(
-        //     self,
-        //     selector: #selector(iCloudDidChange(_:)),
-        //     name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-        //     object: iCloudStore
-        // )
     }
 
-    deinit {
-        // NotificationCenter.default.removeObserver(self)
-    }
-
-    func set(_ type: DayType?, for date: Date, calendar: Calendar = .current) {
+    func set(_ type: DayType?, for date: Date, calendar: Calendar = .current, geofenced: Bool = false) {
         let key = calendar.dayKey(for: date)
         if let type {
             log.entries[key] = type
+            if geofenced && type == .inOffice {
+                log.geofencedDates.insert(key)
+            } else {
+                // If manually set, remove from geofenced
+                log.geofencedDates.remove(key)
+            }
         } else {
             log.entries.removeValue(forKey: key)
+            log.geofencedDates.remove(key)
         }
         save()
+    }
+    
+    func isGeofenced(_ date: Date, calendar: Calendar = .current) -> Bool {
+        let key = calendar.dayKey(for: date)
+        return log.geofencedDates.contains(key)
     }
 
     func save() {
         let state = PersistedState(config: config, log: log, lastUpdated: Date())
         saveToDefaults(state)
         lastKnownState = state
-        // iCloud sync disabled
-        // if !isApplyingRemoteUpdate {
-        //     saveToICloud(state)
-        // }
     }
 
     private func load() {
@@ -167,53 +172,9 @@ final class OfficeStore: ObservableObject {
         UserDefaults.standard.set(data, forKey: defaultsKey)
     }
 
-    private func saveToICloud(_ state: PersistedState) {
-        guard let data = try? JSONEncoder().encode(state) else { return }
-        iCloudStore.set(data, forKey: iCloudKey)
-        iCloudStore.synchronize()
-    }
-
     private func loadFromDefaults() -> PersistedState? {
         guard let data = UserDefaults.standard.data(forKey: defaultsKey) else { return nil }
         return try? JSONDecoder().decode(PersistedState.self, from: data)
-    }
-
-    private func loadFromICloud() -> PersistedState? {
-        iCloudStore.synchronize()
-        guard let data = iCloudStore.data(forKey: iCloudKey) else { return nil }
-        return try? JSONDecoder().decode(PersistedState.self, from: data)
-    }
-
-    private func chooseNewest(local: PersistedState?, cloud: PersistedState?) -> PersistedState? {
-        switch (local, cloud) {
-        case (nil, nil):
-            return nil
-        case (let local?, nil):
-            return local
-        case (nil, let cloud?):
-            return cloud
-        case (let local?, let cloud?):
-            return local.lastUpdated >= cloud.lastUpdated ? local : cloud
-        }
-    }
-
-    private func apply(state: PersistedState, persistToICloud: Bool) {
-        isApplyingRemoteUpdate = true
-        config = state.config
-        log = state.log
-        saveToDefaults(state)
-        lastKnownState = state
-        if persistToICloud {
-            saveToICloud(state)
-        }
-        isApplyingRemoteUpdate = false
-    }
-
-    @objc private func iCloudDidChange(_ notification: Notification) {
-        guard let cloudState = loadFromICloud() else { return }
-        let localState = lastKnownState ?? loadFromDefaults()
-        guard cloudState.lastUpdated > (localState?.lastUpdated ?? .distantPast) else { return }
-        apply(state: cloudState, persistToICloud: false)
     }
 }
 

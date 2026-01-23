@@ -62,9 +62,11 @@ struct MonthGridView: View {
         ForEach(Array(gridCells.enumerated()), id: \.offset) { _, day in
             if let day {
                 let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) ?? monthStart
+                let key = calendar.dayKey(for: date)
                 DayCell(
                     date: date,
-                    type: log.entries[calendar.dayKey(for: date)],
+                    type: log.entries[key],
+                    isGeofenced: log.geofencedDates.contains(key),
                     isEnabled: validRange.contains(calendar.startOfDay(for: date)),
                     onSetType: onSetType
                 )
@@ -123,6 +125,7 @@ private extension MonthGridView {
 private struct DayCell: View {
     let date: Date
     let type: DayType?
+    let isGeofenced: Bool
     let isEnabled: Bool
     let onSetType: (Date, DayType?) -> Void
 
@@ -209,9 +212,16 @@ private struct DayCell: View {
                         .foregroundStyle(type != nil ? iconColor : (isEnabled ? Color.primary : Color.secondary.opacity(0.5)))
                     
                     if let icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(iconColor)
+                        HStack(spacing: 2) {
+                            Image(systemName: icon)
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(iconColor)
+                            if isGeofenced && type == .inOffice {
+                                Image(systemName: "globe")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(iconColor.opacity(0.8))
+                            }
+                        }
                     }
                 }
             }
@@ -221,16 +231,6 @@ private struct DayCell: View {
         }
         .buttonStyle(.plain)
         .help(type?.displayName ?? (isWeekend ? "Weekend" : "Click to mark"))
-    }
-    
-    private func iconFor(_ type: DayType) -> String {
-        switch type {
-        case .inOffice: return "checkmark.circle.fill"
-        case .pto: return "airplane.circle.fill"
-        case .sick: return "cross.circle.fill"
-        case .exempt: return "minus.circle.fill"
-        case .publicHoliday: return "flag.circle.fill"
-        }
     }
 }
 
