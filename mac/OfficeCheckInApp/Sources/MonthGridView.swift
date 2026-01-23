@@ -6,11 +6,11 @@ struct MonthGridView: View {
     let onSetType: (Date, DayType?) -> Void
     let validRange: ClosedRange<Date>
 
-    private var calendar: Calendar {
+    private let calendar: Calendar = {
         var cal = Calendar.current
         cal.firstWeekday = 2 // Monday
         return cal
-    }
+    }()
 
     private var monthStart: Date {
         // Use a plain calendar for date math to avoid firstWeekday complications
