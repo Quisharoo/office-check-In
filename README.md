@@ -11,7 +11,13 @@ brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In
 brew install --cask office-check-in
 ```
 
-After install, you need to bypass Gatekeeper (app is not notarized):
+**Update to latest version:**
+
+```bash
+brew upgrade --cask office-check-in
+```
+
+After install/upgrade, you need to bypass Gatekeeper (app is not notarized):
 
 ```bash
 xattr -cr /Applications/OfficeCheckIn.app
