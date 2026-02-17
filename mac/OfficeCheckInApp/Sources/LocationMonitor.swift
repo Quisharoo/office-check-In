@@ -86,26 +86,28 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         manager.requestLocation()
     }
     
+    // Pre-compiled regex patterns for performance
+    private static let googleMapsRegex = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/
+    private static let latRegex = /!3d(-?\d+\.?\d*)/
+    private static let lonRegex = /!4d(-?\d+\.?\d*)/
+
     /// Parse coordinates from various formats (Google Maps URL, "lat, lon", etc.)
     func parseCoordinates(_ input: String) -> (latitude: Double, longitude: Double)? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Try Google Maps URL format: .../@51.5074,-0.1278,...
-        if let match = trimmed.range(of: #"@(-?\d+\.?\d*),(-?\d+\.?\d*)"#, options: .regularExpression) {
-            let coords = String(trimmed[match]).dropFirst()
-            let parts = coords.split(separator: ",")
-            if parts.count >= 2,
-               let lat = Double(parts[0]),
-               let lon = Double(parts[1]) {
+        if let match = trimmed.firstMatch(of: Self.googleMapsRegex) {
+            let (_, latStr, lonStr) = match.output
+            if let lat = Double(latStr), let lon = Double(lonStr) {
                 return (lat, lon)
             }
         }
         
         // Try !3d...!4d... format
-        if let latMatch = trimmed.range(of: #"!3d(-?\d+\.?\d*)"#, options: .regularExpression),
-           let lonMatch = trimmed.range(of: #"!4d(-?\d+\.?\d*)"#, options: .regularExpression) {
-            let latStr = String(trimmed[latMatch]).dropFirst(3)
-            let lonStr = String(trimmed[lonMatch]).dropFirst(3)
+        if let latMatch = trimmed.firstMatch(of: Self.latRegex),
+           let lonMatch = trimmed.firstMatch(of: Self.lonRegex) {
+            let (_, latStr) = latMatch.output
+            let (_, lonStr) = lonMatch.output
             if let lat = Double(latStr), let lon = Double(lonStr) {
                 return (lat, lon)
             }
