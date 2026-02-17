@@ -68,7 +68,8 @@ struct MonthGridView: View {
                     type: log.entries[key],
                     isGeofenced: log.geofencedDates.contains(key),
                     isEnabled: validRange.contains(calendar.startOfDay(for: date)),
-                    onSetType: onSetType
+                    onSetType: onSetType,
+                    calendar: calendar
                 )
             } else {
                 Color.clear.frame(height: 46)
@@ -128,11 +129,10 @@ private struct DayCell: View {
     let isGeofenced: Bool
     let isEnabled: Bool
     let onSetType: (Date, DayType?) -> Void
-
-    private var calendar: Calendar { .current }
+    let calendar: Calendar
 
     private var isToday: Bool {
-        Calendar.current.isDateInToday(date)
+        calendar.isDateInToday(date)
     }
     
     private var isWeekend: Bool {
