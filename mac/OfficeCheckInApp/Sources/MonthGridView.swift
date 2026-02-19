@@ -6,13 +6,23 @@ struct MonthGridView: View {
     let onSetType: (Date, DayType?) -> Void
     let validRange: ClosedRange<Date>
 
-    private let calendar: Calendar = {
+    private let calendar: Calendar
+    private let monthStart: Date
+    private let gridCells: [Int?]
+    private let weekdaySymbols: [String]
+
+    private let cols = Array(repeating: GridItem(.flexible(minimum: 50, maximum: 70), spacing: 4), count: 7)
+
+    init(month: Date, log: DayLog, onSetType: @escaping (Date, DayType?) -> Void, validRange: ClosedRange<Date>) {
+        self.month = month
+        self.log = log
+        self.onSetType = onSetType
+        self.validRange = validRange
+
         var cal = Calendar.current
         cal.firstWeekday = 2 // Monday
-        return cal
-    }()
+        self.calendar = cal
 
-    private var monthStart: Date {
         // Use a plain calendar for date math to avoid firstWeekday complications
         let plainCal = Calendar.current
         let year = plainCal.component(.year, from: month)
@@ -22,28 +32,20 @@ struct MonthGridView: View {
         components.month = monthNum
         components.day = 1
         components.hour = 12
-        return plainCal.date(from: components) ?? month
-    }
+        let start = plainCal.date(from: components) ?? month
+        self.monthStart = start
 
-    private var daysInMonth: Int {
-        Calendar.current.range(of: .day, in: .month, for: monthStart)?.count ?? 30
-    }
+        let daysInMonth = plainCal.range(of: .day, in: .month, for: start)?.count ?? 30
+        let weekday = plainCal.component(.weekday, from: start)
+        let leadingBlanks = (weekday - 2 + 7) % 7
 
-    private var leadingBlanks: Int {
-        // Use plain calendar to get weekday (1=Sunday, 2=Monday, ..., 7=Saturday)
-        let weekday = Calendar.current.component(.weekday, from: monthStart)
-        // For Monday-first calendar: Mon=0 blanks, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
-        return (weekday - 2 + 7) % 7
-    }
+        var cells = [Int?](repeating: nil, count: leadingBlanks)
+        cells.append(contentsOf: (1...daysInMonth).map { Optional($0) })
+        self.gridCells = cells
 
-    // Reorder weekday symbols to start with Monday
-    private var weekdaySymbols: [String] {
-        let symbols = calendar.shortWeekdaySymbols
-        // Rotate so Monday is first: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
-        return Array(symbols[1...]) + [symbols[0]]
+        let symbols = cal.shortWeekdaySymbols
+        self.weekdaySymbols = Array(symbols[1...]) + [symbols[0]]
     }
-
-    private let cols = Array(repeating: GridItem(.flexible(minimum: 50, maximum: 70), spacing: 4), count: 7)
 
     var body: some View {
         VStack(spacing: 8) {
@@ -57,24 +59,24 @@ struct MonthGridView: View {
                 }
             }
 
-    // Day grid
-    LazyVGrid(columns: cols, spacing: 4) {
-        ForEach(Array(gridCells.enumerated()), id: \.offset) { _, day in
-            if let day {
-                let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) ?? monthStart
-                let key = calendar.dayKey(for: date)
-                DayCell(
-                    date: date,
-                    type: log.entries[key],
-                    isGeofenced: log.geofencedDates.contains(key),
-                    isEnabled: validRange.contains(calendar.startOfDay(for: date)),
-                    onSetType: onSetType
-                )
-            } else {
-                Color.clear.frame(height: 46)
+            // Day grid
+            LazyVGrid(columns: cols, spacing: 4) {
+                ForEach(Array(gridCells.enumerated()), id: \.offset) { _, day in
+                    if let day {
+                        let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) ?? monthStart
+                        let key = calendar.dayKey(for: date)
+                        DayCell(
+                            date: date,
+                            type: log.entries[key],
+                            isGeofenced: log.geofencedDates.contains(key),
+                            isEnabled: validRange.contains(calendar.startOfDay(for: date)),
+                            onSetType: onSetType
+                        )
+                    } else {
+                        Color.clear.frame(height: 46)
+                    }
+                }
             }
-        }
-    }
             
             // Legend
             HStack(spacing: 14) {
@@ -111,14 +113,6 @@ struct MonthGridView: View {
         case .exempt: return "minus.circle.fill"
         case .publicHoliday: return "flag.circle.fill"
         }
-    }
-}
-
-private extension MonthGridView {
-    var gridCells: [Int?] {
-        var cells = [Int?](repeating: nil, count: leadingBlanks)
-        cells.append(contentsOf: (1...daysInMonth).map { Optional($0) })
-        return cells
     }
 }
 
