@@ -1,6 +1,8 @@
 # Office Check‑In
 
-A macOS menubar app for tracking office attendance. Shows your flex percentage for the month/quarter and suggests days to hit your target.
+![Office Check-In Screenshot](screenshot.png)
+
+A macOS menubar app for tracking office attendance. Shows your office attendance percentage for the month/quarter and suggests days to hit your target.
 
 ## Install
 
@@ -8,7 +10,7 @@ A macOS menubar app for tracking office attendance. Shows your flex percentage f
 
 ```bash
 # Copy/paste this ONE command (install/upgrade/clean/launch; no sudo needed)
-brew untap quisharoo/tap 2>/dev/null || true; brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In; mkdir -p "$HOME/Applications"; brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in || brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; APP="$HOME/Applications/OfficeCheckIn.app"; [ -d "$APP" ] || APP="/Applications/OfficeCheckIn.app"; xattr -cr "$APP" 2>/dev/null || true; killall OfficeCheckIn 2>/dev/null || true; open "$APP"
+brew untap quisharoo/tap 2>/dev/null || true; brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In; brew update >/dev/null; mkdir -p "$HOME/Applications"; if brew list --cask quisharoo/office-check-in/office-check-in >/dev/null 2>&1; then brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; else brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; fi; APP="$HOME/Applications/OfficeCheckIn.app"; [ -d "$APP" ] || APP="/Applications/OfficeCheckIn.app"; xattr -cr "$APP" 2>/dev/null || true; killall OfficeCheckIn 2>/dev/null || true; open "$APP"
 ```
 
 > Note: `xattr` is needed because the app is not notarized.
@@ -65,5 +67,5 @@ killall cfprefsd; open /Applications/OfficeCheckIn.app
 
 ---
 
-![Office Check-In Screenshot](screenshot.png)
+
 
