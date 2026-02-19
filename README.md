@@ -12,23 +12,31 @@ brew untap quisharoo/tap 2>/dev/null || true
 
 brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In
 
+# Non-admin (recommended for work devices): install to ~/Applications (no sudo prompt)
+mkdir -p "$HOME/Applications"
+
 # Fully-qualify so this is re-runnable and doesn't depend on which taps exist
-brew install --cask quisharoo/office-check-in/office-check-in || brew upgrade --cask quisharoo/office-check-in/office-check-in
-xattr -cr /Applications/OfficeCheckIn.app
+brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in || \
+  brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
+
+xattr -cr "$HOME/Applications/OfficeCheckIn.app"
 killall OfficeCheckIn 2>/dev/null || true
-open /Applications/OfficeCheckIn.app
+open "$HOME/Applications/OfficeCheckIn.app"
 ```
 
 **Upgrade:**
 
 ```bash
-brew upgrade --cask quisharoo/office-check-in/office-check-in
-xattr -cr /Applications/OfficeCheckIn.app
+brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
+xattr -cr "$HOME/Applications/OfficeCheckIn.app"
 killall OfficeCheckIn 2>/dev/null || true
-open /Applications/OfficeCheckIn.app
+open "$HOME/Applications/OfficeCheckIn.app"
 ```
 
 > Note: `xattr` is needed because the app is not notarized.
+>
+> If you do have admin rights and want a system-wide install, use `--appdir=/Applications`
+> and adjust the `xattr`/`open` paths accordingly (Homebrew may prompt for a password).
 
 ### Manual
 
