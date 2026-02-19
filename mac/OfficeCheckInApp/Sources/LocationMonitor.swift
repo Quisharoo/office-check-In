@@ -53,7 +53,36 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func requestPermission() {
+        // This app relies on geofencing; request "Always" so region monitoring
+        // can work without the app being active.
         manager.requestAlwaysAuthorization()
+    }
+
+    private enum PermissionPurpose {
+        case monitoring
+        case oneShot
+    }
+
+    private func ensurePermissionOrExplain(_ purpose: PermissionPurpose) -> Bool {
+        switch authorizationStatus {
+        case .notDetermined:
+            lastEvent = "Location permission required"
+            switch purpose {
+            case .monitoring:
+                manager.requestAlwaysAuthorization()
+            case .oneShot:
+                manager.requestWhenInUseAuthorization()
+            }
+            return false
+        case .restricted, .denied:
+            lastEvent = "Location permission denied"
+            return false
+        case .authorizedAlways, .authorized:
+            return true
+        @unknown default:
+            lastEvent = "Location permission unknown"
+            return false
+        }
     }
     
     // MARK: - Office Management
@@ -131,6 +160,11 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     
     func startMonitoringIfConfigured() {
         guard let store else { return }
+
+        guard ensurePermissionOrExplain(.monitoring) else {
+            stopMonitoring()
+            return
+        }
         
         let enabledOffices = store.config.offices.filter { $0.isEnabled }
         
@@ -187,6 +221,7 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     /// Check current location immediately against all enabled offices
     func checkLocationNow() {
         guard let store else { return }
+        guard ensurePermissionOrExplain(.oneShot) else { return }
         let enabledOffices = store.config.offices.filter { $0.isEnabled }
         guard !enabledOffices.isEmpty else {
             lastEvent = "No offices configured"
@@ -230,6 +265,10 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
         authorizationStatus = manager.authorizationStatus
         if authorizationStatus == .authorizedAlways || authorizationStatus == .authorized {
             startMonitoringIfConfigured()
+            checkLocationNow()
+        } else if authorizationStatus == .denied || authorizationStatus == .restricted {
+            stopMonitoring()
+            lastEvent = "Location permission denied"
         }
     }
 
