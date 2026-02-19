@@ -87,30 +87,34 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     }
     
     // Pre-compiled regex patterns for performance
-    private static let googleMapsRegex = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/
-    private static let latRegex = /!3d(-?\d+\.?\d*)/
-    private static let lonRegex = /!4d(-?\d+\.?\d*)/
+    // Note: we intentionally use NSRegularExpression here to avoid relying on
+    // bare-slash regex literal parsing, which can be compiler-flag dependent.
+    private static let googleMapsRegex = try! NSRegularExpression(pattern: #"@(-?\d+\.?\d*),(-?\d+\.?\d*)"#)
+    private static let latRegex = try! NSRegularExpression(pattern: #"!3d(-?\d+\.?\d*)"#)
+    private static let lonRegex = try! NSRegularExpression(pattern: #"!4d(-?\d+\.?\d*)"#)
 
     /// Parse coordinates from various formats (Google Maps URL, "lat, lon", etc.)
     func parseCoordinates(_ input: String) -> (latitude: Double, longitude: Double)? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fullRange = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         
         // Try Google Maps URL format: .../@51.5074,-0.1278,...
-        if let match = trimmed.firstMatch(of: Self.googleMapsRegex) {
-            let (_, latStr, lonStr) = match.output
-            if let lat = Double(latStr), let lon = Double(lonStr) {
-                return (lat, lon)
-            }
+        if let match = Self.googleMapsRegex.firstMatch(in: trimmed, range: fullRange),
+           let latRange = Range(match.range(at: 1), in: trimmed),
+           let lonRange = Range(match.range(at: 2), in: trimmed),
+           let lat = Double(trimmed[latRange]),
+           let lon = Double(trimmed[lonRange]) {
+            return (lat, lon)
         }
         
         // Try !3d...!4d... format
-        if let latMatch = trimmed.firstMatch(of: Self.latRegex),
-           let lonMatch = trimmed.firstMatch(of: Self.lonRegex) {
-            let (_, latStr) = latMatch.output
-            let (_, lonStr) = lonMatch.output
-            if let lat = Double(latStr), let lon = Double(lonStr) {
-                return (lat, lon)
-            }
+        if let latMatch = Self.latRegex.firstMatch(in: trimmed, range: fullRange),
+           let lonMatch = Self.lonRegex.firstMatch(in: trimmed, range: fullRange),
+           let latRange = Range(latMatch.range(at: 1), in: trimmed),
+           let lonRange = Range(lonMatch.range(at: 1), in: trimmed),
+           let lat = Double(trimmed[latRange]),
+           let lon = Double(trimmed[lonRange]) {
+            return (lat, lon)
         }
         
         // Try simple "lat, lon" or "lat lon" format
