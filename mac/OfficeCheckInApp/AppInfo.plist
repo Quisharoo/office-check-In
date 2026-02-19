@@ -11,12 +11,18 @@
   <key>CFBundleDisplayName</key>
   <string>Office Check-In</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>0.3.1</string>
   <key>CFBundleVersion</key>
   <string>1</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>Office Check-In uses location to detect office attendance.</string>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Office Check-In uses location to detect office attendance.</string>
+  <key>NSLocationAlwaysUsageDescription</key>
+  <string>Office Check-In uses location to detect office attendance.</string>
+  <key>NSLocationUsageDescription</key>
   <string>Office Check-In uses location to detect office attendance.</string>
 </dict>
 </plist>

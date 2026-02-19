@@ -7,7 +7,7 @@ A macOS menubar app for tracking office attendance. Shows your flex percentage f
 ### Homebrew
 
 ```bash
-brew tap quisharoo/tap
+brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In
 brew install --cask office-check-in
 xattr -cr /Applications/OfficeCheckIn.app
 open /Applications/OfficeCheckIn.app
