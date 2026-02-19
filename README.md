@@ -9,13 +9,32 @@ A macOS menubar app for tracking office attendance. Shows your office attendance
 ### Homebrew
 
 ```bash
-# Copy/paste this ONE command (install/upgrade/clean/launch; no sudo needed)
-brew untap quisharoo/tap 2>/dev/null || true; brew tap quisharoo/office-check-in 2>/dev/null || brew tap quisharoo/office-check-in "https://github.com/Quisharoo/office-check-In"; brew update; mkdir -p "$HOME/Applications"; if brew list --cask quisharoo/office-check-in/office-check-in >/dev/null 2>&1; then brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; else brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; fi; APP="$HOME/Applications/OfficeCheckIn.app"; [ -d "$APP" ] || APP="/Applications/OfficeCheckIn.app"; xattr -cr "$APP" 2>/dev/null || true; killall OfficeCheckIn 2>/dev/null || true; open "$APP"
+# Optional: remove old tap to avoid cask ambiguity
+brew untap quisharoo/tap 2>/dev/null || true
+
+brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In
+brew update
+
+# Non-admin (recommended for work devices): install to ~/Applications (no sudo prompt)
+mkdir -p "$HOME/Applications"
+brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
+
+# Remove quarantine and launch
+xattr -cr "$HOME/Applications/OfficeCheckIn.app"
+killall OfficeCheckIn 2>/dev/null || true
+open "$HOME/Applications/OfficeCheckIn.app"
+```
+
+**Upgrade:**
+
+```bash
+brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
+xattr -cr "$HOME/Applications/OfficeCheckIn.app"
+killall OfficeCheckIn 2>/dev/null || true
+open "$HOME/Applications/OfficeCheckIn.app"
 ```
 
 > Note: `xattr` is needed because the app is not notarized.
->
-> This command installs to `~/Applications` (better for work devices without admin).
 >
 > Work-managed Macs with `sudo` blocked: if you previously installed an older copy to `/Applications`,
 > Homebrew may try to remove `/Applications/OfficeCheckIn.app` during upgrade and fail (because that
