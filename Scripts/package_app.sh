@@ -4,7 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source local signing config if present
+# Source local signing config if present (developer convenience).
+# Note: for distribution we default to ad-hoc signing unless a proper
+# "Developer ID Application" identity is provided.
 if [[ -f "${SCRIPT_DIR}/signing.local" ]]; then
   source "${SCRIPT_DIR}/signing.local"
 fi
@@ -38,10 +40,16 @@ chmod +x "${MACOS_DIR}/${APP_NAME}"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 
 if [[ -n "${SIGNING_IDENTITY}" ]]; then
-  echo "Codesigning with entitlements..."
-  codesign --force --options runtime --entitlements "${ENTITLEMENTS}" --sign "${SIGNING_IDENTITY}" "${APP_DIR}"
+  if [[ "${SIGNING_IDENTITY}" == *"Developer ID Application"* ]]; then
+    echo "Codesigning with Developer ID + entitlements..."
+    codesign --force --options runtime --entitlements "${ENTITLEMENTS}" --sign "${SIGNING_IDENTITY}" "${APP_DIR}"
+  else
+    echo "Warning: SIGNING_IDENTITY is not a Developer ID identity; using ad-hoc signing for distribution compatibility."
+    codesign --force --deep --sign - "${APP_DIR}"
+  fi
 else
-  echo "Skipping codesign (set SIGNING_IDENTITY to enable)"
+  echo "Ad-hoc signing (no SIGNING_IDENTITY set)..."
+  codesign --force --deep --sign - "${APP_DIR}"
 fi
 
 echo "Zipping..."
