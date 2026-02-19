@@ -7,40 +7,14 @@ A macOS menubar app for tracking office attendance. Shows your flex percentage f
 ### Homebrew
 
 ```bash
-# If you previously used quisharoo/tap, remove it to avoid cask-name ambiguity
-brew untap quisharoo/tap 2>/dev/null || true
-
-brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In
-
-# Non-admin (recommended for work devices): install to ~/Applications (no sudo prompt)
-mkdir -p "$HOME/Applications"
-
-# Fully-qualify so this is re-runnable and doesn't depend on which taps exist
-brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in || \
-  brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
-
-xattr -cr "$HOME/Applications/OfficeCheckIn.app"
-killall OfficeCheckIn 2>/dev/null || true
-open "$HOME/Applications/OfficeCheckIn.app"
-```
-
-**Upgrade:**
-
-```bash
-brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
-xattr -cr "$HOME/Applications/OfficeCheckIn.app"
-killall OfficeCheckIn 2>/dev/null || true
-open "$HOME/Applications/OfficeCheckIn.app"
+# Copy/paste this ONE command (install/upgrade/clean/launch; no sudo needed)
+brew untap quisharoo/tap 2>/dev/null || true; brew tap quisharoo/office-check-in https://github.com/Quisharoo/office-check-In; mkdir -p "$HOME/Applications"; brew install --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in || brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in; APP="$HOME/Applications/OfficeCheckIn.app"; [ -d "$APP" ] || APP="/Applications/OfficeCheckIn.app"; xattr -cr "$APP" 2>/dev/null || true; killall OfficeCheckIn 2>/dev/null || true; open "$APP"
 ```
 
 > Note: `xattr` is needed because the app is not notarized.
 >
-> If you do have admin rights and want a system-wide install, use `--appdir=/Applications`
-> and adjust the `xattr`/`open` paths accordingly (Homebrew may prompt for a password).
->
-> If you previously installed to `/Applications`, you may already have `/Applications/OfficeCheckIn.app`.
-> In that case, either run `xattr/open` against `/Applications/OfficeCheckIn.app` or uninstall/reinstall
-> with `--appdir="$HOME/Applications"` (moving/removing `/Applications` apps may require admin rights).
+> This command installs to `~/Applications` when possible (better for work devices without admin),
+> but will also work if you previously installed to `/Applications`.
 
 ### Manual
 
