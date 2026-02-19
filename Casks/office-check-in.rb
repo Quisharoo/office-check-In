@@ -1,6 +1,6 @@
 cask "office-check-in" do
-  version "0.3.1"
-  sha256 "fe2c418759566369cffea2a0d693f130b1c2a25922ff4d8d073b80902ba46a44"
+  version "0.3.2"
+  sha256 "a38a2762fe600aefea0c3f236f699f209b5358248becb6b1f57e087fc03f7b73"
 
   url "https://github.com/Quisharoo/office-check-In/releases/download/v#{version}/OfficeCheckIn-#{version}.zip"
   name "Office Check-In"
