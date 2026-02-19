@@ -37,6 +37,10 @@ open "$HOME/Applications/OfficeCheckIn.app"
 >
 > If you do have admin rights and want a system-wide install, use `--appdir=/Applications`
 > and adjust the `xattr`/`open` paths accordingly (Homebrew may prompt for a password).
+>
+> If you previously installed to `/Applications`, you may already have `/Applications/OfficeCheckIn.app`.
+> In that case, either run `xattr/open` against `/Applications/OfficeCheckIn.app` or uninstall/reinstall
+> with `--appdir="$HOME/Applications"` (moving/removing `/Applications` apps may require admin rights).
 
 ### Manual
 
