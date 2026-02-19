@@ -15,12 +15,22 @@ brew untap quisharoo/tap 2>/dev/null || true; brew tap quisharoo/office-check-in
 
 > Note: `xattr` is needed because the app is not notarized.
 >
-> This command installs to `~/Applications` when possible (better for work devices without admin),
-> but will also work if you previously installed to `/Applications`.
+> This command installs to `~/Applications` (better for work devices without admin).
+>
+> Work-managed Macs with `sudo` blocked: if you previously installed an older copy to `/Applications`,
+> Homebrew may try to remove `/Applications/OfficeCheckIn.app` during upgrade and fail (because that
+> requires admin rights). In that case, use the Manual install below to `~/Applications` (no admin).
 
 ### Manual
 
-Download from [Releases](https://github.com/Quisharoo/office-check-In/releases/latest), unzip, move to `/Applications`, then run the `xattr` command above.
+Download from [Releases](https://github.com/Quisharoo/office-check-In/releases/latest), unzip, and move to `~/Applications` (recommended for work machines), then run:
+
+```bash
+mkdir -p "$HOME/Applications"
+xattr -cr "$HOME/Applications/OfficeCheckIn.app"
+killall OfficeCheckIn 2>/dev/null || true
+open "$HOME/Applications/OfficeCheckIn.app"
+```
 
 ## Development
 
