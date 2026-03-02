@@ -86,13 +86,10 @@ struct StatusCardView: View {
         return FlexLogic.attendance(log: store.log, startDate: monthStart, endDate: monthEnd, calendar: calendar)
     }
     
-    // Quarter-to-date summary (from quarter start to end of current month being viewed)
+    // Quarter-to-date summary (from quarter start through today — never includes future days)
     private var quarterToDateSummary: AttendanceSummary {
-        let comps = calendar.dateComponents([.year, .month], from: monthCursor)
-        let monthEnd = calendar.date(from: comps)
-            .flatMap { calendar.date(byAdding: .month, value: 1, to: $0) }
-            .flatMap { calendar.date(byAdding: .day, value: -1, to: $0) } ?? today
-        return FlexLogic.attendance(log: store.log, startDate: fiscalQuarter.start, endDate: monthEnd, calendar: calendar)
+        let endThroughToday = min(fiscalQuarter.end, today)
+        return FlexLogic.attendance(log: store.log, startDate: fiscalQuarter.start, endDate: endThroughToday, calendar: calendar)
     }
 
     private var header: some View {
