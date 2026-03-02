@@ -1,6 +1,6 @@
 cask "office-check-in" do
-  version "0.3.3"
-  sha256 "03a6bf17474c9fa530c15875452265451c6f488793425485741d7e436bb1f73e"
+  version "0.3.4"
+  sha256 "fa55a8ce42e8e744230b2aa52329c18eeee732153613018f8e3f26640325690b"
 
   depends_on arch: :arm64
   depends_on macos: ">= :sonoma"
