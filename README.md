@@ -28,6 +28,7 @@ open "$HOME/Applications/OfficeCheckIn.app"
 **Upgrade:**
 
 ```bash
+brew update
 brew upgrade --cask --appdir="$HOME/Applications" quisharoo/office-check-in/office-check-in
 xattr -cr "$HOME/Applications/OfficeCheckIn.app"
 killall OfficeCheckIn 2>/dev/null || true
