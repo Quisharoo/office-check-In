@@ -121,6 +121,26 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
     private static let googleMapsRegex = try! NSRegularExpression(pattern: #"@(-?\d+\.?\d*),(-?\d+\.?\d*)"#)
     private static let latRegex = try! NSRegularExpression(pattern: #"!3d(-?\d+\.?\d*)"#)
     private static let lonRegex = try! NSRegularExpression(pattern: #"!4d(-?\d+\.?\d*)"#)
+    /// Fallback: any "lat,lon" pair in string (e.g. place URLs with @55.6,12.5,17z or in query)
+    private static let anyLatLonPairRegex = try! NSRegularExpression(pattern: #"(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)"#)
+
+    /// Resolves Google Maps short URLs (e.g. maps.app.goo.gl, goo.gl) by following redirects.
+    /// Returns the final URL string so coordinates can be parsed from it.
+    func resolveShortMapURL(_ urlString: String) async -> String? {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              (trimmed.contains("goo.gl") || trimmed.contains("maps.app.goo.gl")) else { return nil }
+        do {
+            // GET follows redirects; HEAD may not for short links
+            let (_, response) = try await URLSession.shared.data(from: url)
+            guard let http = response as? HTTPURLResponse,
+                  (200...399).contains(http.statusCode),
+                  let finalURL = response.url else { return nil }
+            return finalURL.absoluteString
+        } catch {
+            return nil
+        }
+    }
 
     /// Parse coordinates from various formats (Google Maps URL, "lat, lon", etc.)
     func parseCoordinates(_ input: String) -> (latitude: Double, longitude: Double)? {
@@ -143,6 +163,16 @@ final class LocationMonitor: NSObject, ObservableObject, CLLocationManagerDelega
            let lonRange = Range(lonMatch.range(at: 1), in: trimmed),
            let lat = Double(trimmed[latRange]),
            let lon = Double(trimmed[lonRange]) {
+            return (lat, lon)
+        }
+        
+        // Fallback: any "lat,lon" pair in URL/text (handles long place URLs, encoding quirks)
+        if let match = Self.anyLatLonPairRegex.firstMatch(in: trimmed, range: fullRange),
+           let latRange = Range(match.range(at: 1), in: trimmed),
+           let lonRange = Range(match.range(at: 2), in: trimmed),
+           let lat = Double(trimmed[latRange]),
+           let lon = Double(trimmed[lonRange]),
+           (-90...90).contains(lat), (-180...180).contains(lon) {
             return (lat, lon)
         }
         
