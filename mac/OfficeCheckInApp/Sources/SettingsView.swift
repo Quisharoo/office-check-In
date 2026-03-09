@@ -276,8 +276,14 @@ struct OfficeEditorView: View {
     @State private var latitude: Double? = nil
     @State private var longitude: Double? = nil
     @State private var parseError: String? = nil
+    @State private var isResolvingShortURL: Bool = false
     
     private var isEditing: Bool { office != nil }
+    
+    private func looksLikeShortMapURL(_ s: String) -> Bool {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (t.contains("goo.gl") || t.contains("maps.app.goo.gl")) && URL(string: t) != nil
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -311,9 +317,20 @@ struct OfficeEditorView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .onChange(of: coordinatesText) { _, newValue in
                                     parseCoordinatesInput(newValue)
+                                    if latitude == nil, looksLikeShortMapURL(newValue), !isResolvingShortURL {
+                                        Task { await resolveAndParseShortURL(newValue) }
+                                    }
                                 }
                             
-                            if let lat = latitude, let lon = longitude {
+                            if isResolvingShortURL {
+                                HStack(spacing: 4) {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                    Text("Resolving short link…")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else if let lat = latitude, let lon = longitude {
                                 HStack(spacing: 4) {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
@@ -395,6 +412,24 @@ struct OfficeEditorView: View {
             longitude = coords.longitude
         } else {
             parseError = "Could not parse coordinates"
+        }
+    }
+    
+    @MainActor
+    private func resolveAndParseShortURL(_ urlString: String) async {
+        isResolvingShortURL = true
+        parseError = nil
+        defer { isResolvingShortURL = false }
+        guard let resolved = await location.resolveShortMapURL(urlString) else {
+            parseError = "Could not resolve short link"
+            return
+        }
+        if let coords = location.parseCoordinates(resolved) {
+            latitude = coords.latitude
+            longitude = coords.longitude
+            parseError = nil
+        } else {
+            parseError = "Could not parse coordinates from link"
         }
     }
     
