@@ -141,7 +141,7 @@ final class OfficeStore: ObservableObject {
     }
 
     private func load() {
-        // Load from local UserDefaults only (iCloud sync removed)
+        // Load from local UserDefaults only
         guard let localState = loadFromDefaults() else { return }
         config = localState.config
         log = localState.log

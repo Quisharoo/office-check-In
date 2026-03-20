@@ -4,6 +4,8 @@
 
 A macOS menubar app for tracking office attendance. Shows your office attendance percentage for the month/quarter and suggests days to hit your target.
 
+**Fiscal quarters** use a Workday-style calendar: the fiscal year starts **1 February**. Q1 is Feb–Apr, Q2 May–Jul, Q3 Aug–Oct, Q4 Nov–Jan. If your employer uses calendar-year quarters instead, prefer month view or treat quarter labels as informational.
+
 ## Install
 
 ### Homebrew
@@ -94,6 +96,10 @@ open /Applications/OfficeCheckIn.app
 ```bash
 killall cfprefsd; open /Applications/OfficeCheckIn.app
 ```
+
+## License
+
+[MIT](LICENSE). Data (attendance log, office locations) stays on your Mac in `UserDefaults`; the app does not sync to iCloud.
 
 ---
 

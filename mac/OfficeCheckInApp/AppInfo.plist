@@ -11,9 +11,9 @@
   <key>CFBundleDisplayName</key>
   <string>Office Check-In</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.3.3</string>
+  <string>0.3.5</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
