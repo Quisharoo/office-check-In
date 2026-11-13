@@ -1,6 +1,5 @@
 # Office Check‑In
 
-![Office Check-In Screenshot](screenshot.png)
 
 A macOS menubar app for tracking office attendance. Shows your office attendance percentage for the month/quarter and suggests days to hit your target.
 
